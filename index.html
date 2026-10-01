@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Débat radiophonique — Vrai ou faux ?</title>
+<style>
+  :root {
+    --bg: #f4f7fb;
+    --card: #ffffff;
+    --text: #172033;
+    --muted: #667085;
+    --accent: #2563eb;
+    --accent-light: #eaf2ff;
+    --good: #15803d;
+    --good-bg: #ecfdf3;
+    --bad: #b91c1c;
+    --bad-bg: #fef2f2;
+    --border: #d9e0ea;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: Arial, Helvetica, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+  }
+  header {
+    background: linear-gradient(135deg, #1d4ed8, #3b82f6);
+    color: white;
+    padding: 34px 20px;
+    text-align: center;
+  }
+  header h1 { margin: 0 0 8px; font-size: clamp(1.7rem, 4vw, 2.5rem); }
+  header p { margin: 0; opacity: .92; }
+  main { max-width: 900px; margin: 28px auto 50px; padding: 0 16px; }
+  .intro, .question, .result {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    box-shadow: 0 5px 18px rgba(15,23,42,.06);
+  }
+  .intro { padding: 20px 22px; margin-bottom: 20px; }
+  .question { padding: 22px; margin: 16px 0; }
+  .number { color: var(--accent); font-weight: bold; font-size: .92rem; }
+  .statement { font-size: 1.08rem; font-weight: 600; margin: 5px 0 17px; }
+  .choices { display: flex; gap: 12px; margin-bottom: 17px; }
+  .choice {
+    flex: 1;
+    position: relative;
+  }
+  .choice input { position: absolute; opacity: 0; }
+  .choice label {
+    display: block;
+    text-align: center;
+    padding: 12px;
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: .15s;
+  }
+  .choice input:checked + label {
+    border-color: var(--accent);
+    background: var(--accent-light);
+    color: var(--accent);
+  }
+  .show-justification {
+    background: var(--accent-light);
+    color: var(--accent);
+    border: 1px solid #bfdbfe;
+    padding: 9px 14px;
+    margin-top: 2px;
+  }
+  .show-justification:hover { background: #dbeafe; }
+  .justification-box {
+    display: none;
+    margin-top: 12px;
+    padding: 13px 15px;
+    border-left: 4px solid var(--accent);
+    border-radius: 8px;
+    background: #f8fafc;
+    color: #475467;
+  }
+  .justification-box.visible { display: block; }
+  .justification-box strong {
+    display: block;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+  .feedback {
+    display: none;
+    margin-top: 14px;
+    padding: 12px 14px;
+    border-radius: 10px;
+  }
+  .feedback.good { display: block; background: var(--good-bg); color: var(--good); }
+  .feedback.bad { display: block; background: var(--bad-bg); color: var(--bad); }
+  .result {
+    display: none;
+    padding: 25px;
+    margin-top: 24px;
+    text-align: center;
+  }
+  .score { font-size: 2.2rem; font-weight: 800; color: var(--accent); }
+  button {
+    border: 0;
+    border-radius: 11px;
+    padding: 13px 22px;
+    font: inherit;
+    font-weight: bold;
+    cursor: pointer;
+  }
+  #checkBtn { background: var(--accent); color: white; width: 100%; margin-top: 20px; }
+  #checkBtn:hover { filter: brightness(.95); }
+  #resetBtn { background: #e8edf5; color: var(--text); margin-top: 15px; }
+  .missing { border-color: #f59e0b !important; }
+  .progress {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: rgba(244,247,251,.95);
+    backdrop-filter: blur(8px);
+    padding: 10px 0;
+  }
+  .progressbar { height: 8px; background: #dfe6ef; border-radius: 20px; overflow: hidden; }
+  .progressfill { height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+  @media (max-width: 600px) {
+    .choices { gap: 8px; }
+    .question { padding: 17px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Dans un débat radiophonique…</h1>
+  <p>Vrai ou faux ? Justifie chacune de tes réponses.</p>
+</header>
+
+<main>
+  <div class="progress">
+    <div class="progressbar"><div class="progressfill" id="progressFill"></div></div>
+    <small id="progressText">0 / 12 réponses</small>
+  </div>
+
+  <form id="quiz"></form>
+
+  <button id="checkBtn" type="button">✅ Corriger le questionnaire</button>
+
+  <div class="result" id="result">
+    <div>Ton résultat</div>
+    <div class="score" id="score"></div>
+    <p id="resultText"></p>
+    <button id="resetBtn" type="button">🔄 Recommencer</button>
+  </div>
+</main>
+
+<script>
+const questions = [
+  {
+    text: "Il doit y avoir au moins 2 personnes.",
+    answer: "vrai",
+    explanation: "Un débat suppose au minimum deux personnes qui confrontent leurs points de vue."
+  },
+  {
+    text: "Les personnes sont toujours dans la même pièce.",
+    answer: "faux",
+    explanation: "Dans un débat radiophonique, les participants peuvent intervenir depuis des lieux différents."
+  },
+  {
+    text: "Les personnes qui débattent ne partagent pas le même avis sur le sujet concerné.",
+    answer: "vrai",
+    explanation: "Le débat repose sur une confrontation de points de vue différents."
+  },
+  {
+    text: "Chaque débatteur donne son avis quand il le souhaite.",
+    answer: "faux",
+    explanation: "Dans un débat organisé, les prises de parole sont généralement encadrées, notamment par le modérateur."
+  },
+  {
+    text: "Le sujet sur lequel on débat doit être controversé.",
+    answer: "vrai",
+    explanation: "Un débat porte généralement sur une question qui peut susciter des opinions différentes ou opposées."
+  },
+  {
+    text: "Chaque débatteur utilise des arguments pour justifier son avis.",
+    answer: "vrai",
+    explanation: "Les arguments servent à expliquer et à défendre une opinion."
+  },
+  {
+    text: "Chaque débatteur écoute les autres et essaie de montrer que leurs arguments ne sont pas valables.",
+    answer: "vrai",
+    explanation: "Les débatteurs écoutent les arguments des autres et peuvent les contester ou les réfuter."
+  },
+  {
+    text: "Chaque débatteur ne peut dire qu’une seule fois chacun de ses arguments.",
+    answer: "faux",
+    explanation: "Un argument peut être repris, précisé ou développé au cours du débat."
+  },
+  {
+    text: "Les arguments doivent forcément s’appuyer sur l’expérience personnelle de celui qui l’énonce.",
+    answer: "faux",
+    explanation: "Un argument peut s'appuyer sur des faits, des exemples, des données, des connaissances ou d'autres sources."
+  },
+  {
+    text: "Chaque débatteur doit essayer de convaincre l’autre (ou les autres) débatteur(s).",
+    answer: "vrai",
+    explanation: "Convaincre les autres fait partie des objectifs d'un débat argumenté."
+  },
+  {
+    text: "À la fin, toutes les personnes doivent être d’accord.",
+    answer: "faux",
+    explanation: "Les participants peuvent conserver des avis différents à la fin du débat."
+  },
+  {
+    text: "Dans un débat radiophonique, les débatteurs cherchent à convaincre les auditeurs.",
+    answer: "vrai",
+    explanation: "Les auditeurs constituent le public du débat et les débatteurs cherchent notamment à les convaincre par leurs arguments."
+  },
+  {
+    text: "Dans un débat radiophonique, le modérateur ne doit pas donner son avis.",
+    answer: "vrai",
+    explanation: "Le modérateur anime et encadre le débat ; il reste normalement neutre et ne défend pas une position."
+  }
+];
+
+const quiz = document.getElementById("quiz");
+
+questions.forEach((q, i) => {
+  const n = i + 1;
+  const article = document.createElement("section");
+  article.className = "question";
+  article.innerHTML = `
+    <div class="number">Question ${n} / ${questions.length}</div>
+    <div class="statement">${q.text}</div>
+    <div class="choices">
+      <div class="choice">
+        <input type="radio" id="q${n}v" name="q${n}" value="vrai">
+        <label for="q${n}v">Vrai</label>
+      </div>
+      <div class="choice">
+        <input type="radio" id="q${n}f" name="q${n}" value="faux">
+        <label for="q${n}f">Faux</label>
+      </div>
+    </div>
+    <button type="button" class="show-justification" onclick="toggleJustification(${n})">
+      💡 Voir la justification
+    </button>
+    <div class="justification-box" id="justification${n}">
+      <strong>Justification :</strong>
+      <span>${q.explanation}</span>
+    </div>
+    <div class="feedback" id="feedback${n}"></div>
+  `;
+  quiz.appendChild(article);
+});
+
+function updateProgress() {
+  const answered = questions.filter((_, i) =>
+    document.querySelector(`input[name="q${i+1}"]:checked`)
+  ).length;
+  document.getElementById("progressText").textContent =
+    `${answered} / ${questions.length} réponses`;
+  document.getElementById("progressFill").style.width =
+    `${answered / questions.length * 100}%`;
+}
+document.addEventListener("change", updateProgress);
+
+function toggleJustification(n) {
+  const box = document.getElementById(`justification${n}`);
+  const button = document.querySelector(`#justification${n}`).previousElementSibling;
+  const visible = box.classList.toggle("visible");
+  button.textContent = visible ? "🙈 Masquer la justification" : "💡 Voir la justification";
+}
+
+document.getElementById("checkBtn").addEventListener("click", () => {
+  let score = 0;
+  let complete = true;
+
+  questions.forEach((q, i) => {
+    const n = i + 1;
+    const selected = document.querySelector(`input[name="q${n}"]:checked`);
+    const feedback = document.getElementById(`feedback${n}`);
+
+    document.querySelectorAll(`input[name="q${n}"] + label`)
+      .forEach(label => label.classList.remove("missing"));
+
+    if (!selected) {
+      complete = false;
+      document.querySelectorAll(`input[name="q${n}"] + label`)
+        .forEach(label => label.classList.add("missing"));
+      feedback.className = "feedback";
+      feedback.innerHTML = "";
+      return;
+    }
+
+    if (selected.value === q.answer) {
+      score++;
+      feedback.className = "feedback good";
+      feedback.innerHTML = `✅ <strong>Bonne réponse !</strong>`;
+    } else {
+      feedback.className = "feedback bad";
+      feedback.innerHTML = `❌ <strong>Incorrect.</strong> La bonne réponse est <strong>${q.answer === "vrai" ? "Vrai" : "Faux"}</strong>.`;
+    }
+  });
+
+  if (!complete) {
+    alert("Choisis Vrai ou Faux pour chaque question avant de corriger.");
+    document.querySelector(".missing")?.scrollIntoView({behavior:"smooth", block:"center"});
+    return;
+  }
+
+  const result = document.getElementById("result");
+  document.getElementById("score").textContent =
+    `${score} / ${questions.length}`;
+  const percent = Math.round(score / questions.length * 100);
+  document.getElementById("resultText").textContent =
+    percent >= 80
+      ? "Très bien ! Tu maîtrises bien les caractéristiques du débat radiophonique."
+      : percent >= 60
+        ? "Bon travail. Clique sur les justifications pour revoir les points importants."
+        : "Relis les justifications et essaie à nouveau pour consolider tes connaissances.";
+  result.style.display = "block";
+  result.scrollIntoView({behavior:"smooth", block:"center"});
+});
+
+document.getElementById("resetBtn").addEventListener("click", () => {
+  document.getElementById("quiz").reset();
+  document.querySelectorAll(".feedback").forEach(x => {
+    x.className = "feedback";
+    x.innerHTML = "";
+  });
+  document.querySelectorAll("input + label").forEach(x => x.classList.remove("missing"));
+  document.querySelectorAll(".justification-box").forEach(x => x.classList.remove("visible"));
+  document.querySelectorAll(".show-justification").forEach(x => x.textContent = "💡 Voir la justification");
+  document.getElementById("result").style.display = "none";
+  updateProgress();
+  window.scrollTo({top: 0, behavior: "smooth"});
+});
+</script>
+</body>
+</html>
